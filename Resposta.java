@@ -1,11 +1,11 @@
 public class Resposta extends Comunicado {
 
-private Byte contagem;
+private int contagem;
 
-    public Resposta(byte contagem) {
+    public Resposta(int contagem) {
         this.contagem = contagem;
     }
-public byte getContagem(){
+public int getContagem(){
     return this.contagem;
 }
 public toString(){
