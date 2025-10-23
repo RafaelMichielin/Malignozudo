@@ -1,6 +1,8 @@
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.Socket;
+import java.util.*;
+import java.io.*;
+import java.net.*;
 
 //172.16.239.25 -> vinicius
 //172.16.231.165 -> rafael
@@ -10,6 +12,21 @@ public class R {
     public static void main (String[] args)
     {
         int PORTA_PADRAO = 3000;
+        System.out.println("Receptor ativo"+ PORTA_PADRAO);
+        try{
+            ServerSocket servidor = new ServerSocket(PORTA_PADRAO);
+
+            for (;;) {
+                Socket conexao = servidor.accept();
+                ObjectOutputStream transmissor = new ObjectOutputStream(conexao.getOutputStream());
+                ObjectInputStream receptor = new ObjectInputStream(conexao.getInputStream());
+
+                System.out.println("Conexão estabelecida");
+
+        }
+        catch (Exception e){
+            System.err.println("Erro no receptor"+ e.getMessage());
+        }
 //        while true
 //        if(nao recebe nada){ignorea}
 //        if(recebe)
