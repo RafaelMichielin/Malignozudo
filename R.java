@@ -7,15 +7,20 @@ import java.net.Socket;
 // 172.16.130.112 -> samuel
 public class R {
 
-    public static final String HOST_PADRAO  = "localhost";
-    public static final int    PORTA_PADRAO = 3000;
     public static void main (String[] args)
     {
+        int PORTA_PADRAO = 3000;
+//        while true
+//        if(nao recebe nada){ignorea}
+//        if(recebe)
+//        e
+
+
         Socket conexao=null;
         try
         {
-            String host = R.HOST_PADRAO;
-            int    porta= R.PORTA_PADRAO;
+
+            int porta= PORTA_PADRAO;
 
             conexao = new Socket (host, porta);
         }
