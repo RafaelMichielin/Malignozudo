@@ -8,4 +8,7 @@ private Byte contagem;
 public byte getContagem(){
     return this.contagem;
 }
+public toString(){
+    return (""+this.contagem);
+}
 }
