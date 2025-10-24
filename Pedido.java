@@ -1,15 +1,21 @@
-import java.io.*;
 public class Pedido extends Comunicado {
     private byte[] numero;
     private byte procurado;
-
+    
     public  Pedido(byte n[], byte pr) throws Exception {
-        try {
-            this.numero = n;
-            this.procurado = pr;
-        } catch (Exception erro) {
-            throw new Exception("Erro de construtor");
+
+        if(n == null){
+            throw new Exception("Array de números vazio");
         }
+
+        if(pr < -100 || pr >100){
+            throw new Exception("Valor procurado inválido");
+        }
+
+      
+        this.numero = n;
+        this.procurado = pr;
+       
     }
 
     public byte contar() {

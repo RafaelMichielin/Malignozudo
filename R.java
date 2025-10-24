@@ -22,6 +22,7 @@ public class R {
                 ObjectInputStream receptor = new ObjectInputStream(conexao.getInputStream());
 
                 System.out.println("Conexão estabelecida");
+            }
 
         }
         catch (Exception e){
@@ -73,7 +74,7 @@ public class R {
             return;
         }
         ComunicadoEncerramento comunicadoEncerramento = null;
+    }
 
 
-
-}}
+}
