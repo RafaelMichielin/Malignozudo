@@ -1,103 +1,118 @@
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.*;
 import java.io.*;
 import java.net.*;
 
-//172.16.239.25 -> vinicius
-//172.16.231.165 -> rafael
-// 172.16.130.112 -> samuel
 public class R {
-    public static void main (String[] args)
-    {
-        int PORTA_PADRAO = 3000;
-        System.out.println("Receptor ativo"+ PORTA_PADRAO);
-        try{
-            ServerSocket servidor = new ServerSocket(PORTA_PADRAO);
+    public static final int PORTA_PADRAO = 3000;
+    public static void main(String[] args) {
+
+        if(args.length >1)
+            {
+                System.err.println("uso esperado da porta fodase");
+                return;
+            }
+        int porta = R.PORTA_PADRAO;
+        if(args.length == 1)
+            porta = Integer.parseInt(args[0]);
+        System.out.println("Receptor ativo na porta " + porta);
+
+        ServerSocket socket= null;
+
+
+        try {
+            ServerSocket servidor = new ServerSocket(porta);
+            System.out.println("Aguardando conexão do Distribuidor...");
 
             for (;;) {
                 Socket conexao = servidor.accept();
+                System.out.println("Conexão estabelecida com " + conexao.getInetAddress().getHostAddress());
+
                 ObjectOutputStream transmissor = new ObjectOutputStream(conexao.getOutputStream());
                 ObjectInputStream receptor = new ObjectInputStream(conexao.getInputStream());
 
-                System.out.println("Conexão estabelecida");
                 boolean continuar = true;
-                while(continuar){
-                    try{
+
+                while (continuar) {
+                    try {
                         Comunicado comunicado = (Comunicado) receptor.readObject();
 
-                        if (comunicado instanceof Pedido){
+                        // Recebimento do pedido
+                        if (comunicado instanceof Pedido) {
                             Pedido pedido = (Pedido) comunicado;
-                            byte contagem = pedido.contar();
+                            byte []numeros = pedido.getNumero();
+                            byte procurado = pedido.getProcurado();
+                            int quantidadeProcessadores = Runtime.getRuntime().availableProcessors();
+                          //  System.out.println("Processadores disponíveis: " + quantidadeProcessadores);
 
-                            Resposta resposta = new Resposta(contagem);
-                            transmissor.writeObject(resposta);
+                            int tamanho = numeros.length;
+                            int parte = tamanho / quantidadeProcessadores;
+                            int resto = tamanho % quantidadeProcessadores;
+
+                            Thread[] threads = new Thread[quantidadeProcessadores];
+                            int[] contagens = new int[quantidadeProcessadores];
+
+                            int inicio = 0;
+                            int fim = parte - 1;
+
+                            for (int i = 0; i < quantidadeProcessadores; i++) {
+                                if (i == quantidadeProcessadores - 1)
+                                    fim += resto;
+
+                                final int ini = inicio;
+                                final int f = fim;
+                                final int indice = i;
+
+                                threads[i] = new Thread(() -> {
+                                    int c = 0;
+                                    for (int j = ini; j <= f; j++) {
+                                        if (numeros[j] == procurado)
+                                            c++;
+                                    }
+                                    contagens[indice] = c;
+                                });
+
+                                threads[i].start();
+                                inicio = fim + 1;
+                                fim += parte;
+                            }
+
+                            // Espera as threads terminarem
+                            for (int i = 0; i < quantidadeProcessadores; i++) {
+                                threads[i].join();
+                            }
+
+                            // Soma total
+                            int total = 0;
+                            for (int i = 0; i < quantidadeProcessadores; i++) {
+                                total += contagens[i];
+                            }
+
+                            // Envia resposta ao Distribuidor
+                            transmissor.writeObject(new Resposta((byte) total));
                             transmissor.flush();
+
+                            System.out.println("Contagem concluída e enviada: " + total);
                         }
-                        else if (comunicado instanceof ComunicadoEncerramento){
+
+                        // --- Pedido de encerramento ---
+                        else if (comunicado instanceof ComunicadoEncerramento) {
+                            System.out.println("Encerrando conexão com Distribuidor...");
                             continuar = false;
                             transmissor.close();
                             receptor.close();
                             conexao.close();
                         }
-                    }catch (Exception e){
+                    } catch (Exception e) {
                         continuar = false;
-                        System.out.println("Conexão encerrada");
+                        System.out.println("Erro na comunicação: " + e.getMessage());
                     }
                 }
             }
-
+        } catch (Exception e) {
+            System.err.println("Erro no receptor: " + e.getMessage());
         }
-        catch (Exception e){
-            System.err.println("Erro no receptor"+ e.getMessage());
-        }
-//        while true
-//        if(nao recebe nada){ignorea}
-//        if(recebe)
-//        e
-
-
-        Socket conexao=null;
-        try
-        {
-
-            int porta= PORTA_PADRAO;
-
-            conexao = new Socket (host, porta);
-        }
-        catch (Exception erro)
-        {
-            System.err.println ("Indique o servidor e a porta corretos!\n");
-            return;
-        }
-
-        ObjectOutputStream transmissor=null;
-        try
-        {
-            transmissor =
-                    new ObjectOutputStream(
-                            conexao.getOutputStream());
-        }
-        catch (Exception erro)
-        {
-            System.err.println ("Indique o servidor e a porta corretos!\n");
-            return;
-        }
-
-        ObjectInputStream receptor=null;
-        try
-        {
-            receptor =
-                    new ObjectInputStream(
-                            conexao.getInputStream());
-        }
-        catch (Exception erro)
-        {
-            System.err.println ("Indique o servidor e a porta corretos!\n");
-            return;
-        }
-        ComunicadoEncerramento comunicadoEncerramento = null;
     }
-
-
 }
+
+

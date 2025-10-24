@@ -11,11 +11,8 @@ public class Pedido extends Comunicado {
         if(pr < -100 || pr >100){
             throw new Exception("Valor procurado inválido");
         }
-
-      
         this.numero = n;
         this.procurado = pr;
-       
     }
 
     public byte contar() {
@@ -26,5 +23,13 @@ public class Pedido extends Comunicado {
             }
         }
         return qtd;
+    }
+
+    public byte getProcurado() {
+        return procurado;
+    }
+
+    public byte[] getNumero() {
+        return numero;
     }
 }

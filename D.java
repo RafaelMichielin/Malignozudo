@@ -12,9 +12,10 @@ public class D {
 
     public static void main (String[] args) throws Exception {
         // Inicializando código
-        String[] ips = {"172.16.239.25","172.16.231.165", "172.16.130.112"};
+//        String[] ips = {"172.16.239.25","172.16.231.165", "172.16.130.112"};
+        int [] portas = {3000,3001,3002};
 
-        int quantidadeIps = ips.length;
+        int quantidadeIps = portas.length;
 
         int PORTA_PADRAO = 3000;
 
@@ -30,18 +31,18 @@ public class D {
         System.out.println("Sistema iniciando...");
 
         // Realizando conexões com outros computadores na rede
-        for (int i = 0; i < ips.length; i++) {
+        for (int i = 0; i <portas.length; i++) {
             try {
-                System.out.println("Fazendo conexão com máquina: " + ips[i]);
-                Socket conexao = new Socket(ips[i], PORTA_PADRAO);
+                System.out.println("Fazendo conexão com máquina: " + portas[i]);
+                Socket conexao = new Socket("localhost", portas[i]);
                 ObjectOutputStream transmissor = new ObjectOutputStream(conexao.getOutputStream());
                 ObjectInputStream receptor = new ObjectInputStream(conexao.getInputStream());
                 conexoesList[i] = conexao;
                 transmissoresList[i] = transmissor;
                 receptoresList[i] = receptor;
-                System.out.println("Conectado ao ip" + ips[i]);
+                System.out.println("Conectado ao ip" + portas[i]);
             } catch (Exception e) {
-                System.err.println("Falha ao conectar com " + ips[i] + ": " + e.getMessage());
+                System.err.println("Falha ao conectar com " + portas[i] + ": " + e.getMessage());
             }
         }
 
@@ -63,18 +64,18 @@ public class D {
         byte value = vetor[position];
         System.out.println("Valor a ser buscado: " + value);
 
-        int qtd = vetor.length/ips.length;
+        int qtd = vetor.length/portas.length;
         int posIni = 0;
         int posFim = qtd;
 
-        int resto = vetor.length % ips.length;
+        int resto = vetor.length % portas.length;
         int qtdAparicoes = 0;
 
-        if (vetor.length%ips.length == 0){
+        if (vetor.length%portas.length == 0){
         // Tamanho de vetor divide exatamente com a quantidade de computadores
-            for(int j =0; j<ips.length; j++){
+            for(int j =0; j<portas.length; j++){
 
-                System.out.println("Envinado pacote para: " + ips[j]);
+                System.out.println("Envinado pacote para: " + portas[j]);
 
                 byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
                 final int indice = j;
@@ -106,12 +107,12 @@ public class D {
         } 
         else{
         // Tamanho de vetor por pcs da numero quebrado
-            for(int j =0; j<ips.length; j++){
-                if(j == ips.length -1){
+            for(int j =0; j<portas.length; j++){
+                if(j == portas.length -1){
                     posFim += resto;
                 }
 
-                System.out.println("Envinado pacote para: " + ips[j]);
+                System.out.println("Envinado pacote para: " + portas[j]);
 
                 byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
                 final int indice = j;
@@ -154,7 +155,7 @@ public class D {
             transmissoresList[k].close();
             receptoresList[k].close();
             conexoesList[k].close();
-            System.out.println("Conexão com " + ips[k] + " encerrada.");
+            System.out.println("Conexão com " + portas[k] + " encerrada.");
         }
 
         System.out.println("O valor " + value + " aparece " + qtdAparicoes + " vezes");
