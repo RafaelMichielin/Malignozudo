@@ -1,6 +1,6 @@
 public class Resposta extends Comunicado {
 
-    private Byte contagem;
+    private byte contagem;
 
     public Resposta(byte contagem) throws Exception {
         if(contagem < 0){
@@ -9,8 +9,11 @@ public class Resposta extends Comunicado {
         this.contagem = contagem;
     }
 
- 
     public byte getContagem(){
         return this.contagem;
+    }
+
+    public String toString(){
+        return (""+this.contagem);
     }
 }
