@@ -62,38 +62,45 @@ public class D {
         byte resto = (byte) (vetor.length % ips.length);
         byte qtdAparicoes = 0;
 
+        Thread[] threads = new Thread[ips.length];
+
         // Tamanho de vetor divide exatamente com a quantidade de computadores
         if (vetor.length%ips.length == 0){
             for(int i =0; i<ips.length; i++){
-
-                // acho que é tipo isso
-
-                long exec_servidor_ini = System.currentTimeMillis();
-
                 System.out.println("Envinado pacote para: " + ips[i]);
-
                 byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
-                Pedido pedido = new Pedido(subArray, value);
+                final int indice = i;
+                byte qtdServidor = 0;
+                threads[i] = new Thread(() -> {
+                    try{
+                        long exec_servidor_ini = System.currentTimeMillis();
+                        Pedido pedido = new Pedido(subArray, value);
+                        Resposta resposta = null;
+                        Socket conexao = new Socket(ips[indice], 3000);
 
-                Resposta resposta = null;
-                Socket conexao = new Socket(ips[i], 3000);
+                        ObjectOutputStream transmissor = new ObjectOutputStream (conexao.getOutputStream());
+                        transmissor.writeObject(pedido);
+                        transmissor.flush();
 
-                ObjectOutputStream transmissor = new ObjectOutputStream (conexao.getOutputStream());
-                transmissor.writeObject(pedido);
-                transmissor.flush();
+                        ObjectInputStream receptor = new ObjectInputStream (conexao.getInputStream());
+                        resposta = (Resposta)(receptor.readObject());
+                        transmissor.writeObject(comunicadoEncerramento);
+                        conexao.close();
+                        qtdServidor=resposta.getContagem();
+                        long exec_servidor_fim = System.currentTimeMillis();
+                        System.out.println("Computador " + indice + " realizou contagem em: " + (exec_servidor_fim - exec_servidor_ini));
+                        System.out.println("Valor " + value + " encontrado " + qtdServidor + " vezes");
 
-                ObjectInputStream receptor = new ObjectInputStream (conexao.getInputStream());
-                resposta = (Resposta)(receptor.readObject());
+                    }catch (Exception e){
+                        System.out.println(e);
+                    }
+                });
+                threads[i].start();
 
-                transmissor.writeObject(comunicadoEncerramento);
-                conexao.close();
 
-                byte qtdServidor=resposta.getContagem();
 
-                long exec_servidor_fim = System.currentTimeMillis();
-                System.out.println("Computador " + i + " realizou contagem em: " + (exec_servidor_fim - exec_servidor_ini));
-                System.out.println("Valor " + value + " encontrado " + qtdServidor + " vezes");
                 qtdAparicoes += qtdServidor;
+
 
                 posIni = posFim +1;
                 posFim += qtd;

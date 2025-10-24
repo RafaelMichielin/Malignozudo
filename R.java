@@ -8,7 +8,6 @@ import java.net.*;
 //172.16.231.165 -> rafael
 // 172.16.130.112 -> samuel
 public class R {
-
     public static void main (String[] args)
     {
         int PORTA_PADRAO = 3000;
@@ -22,6 +21,30 @@ public class R {
                 ObjectInputStream receptor = new ObjectInputStream(conexao.getInputStream());
 
                 System.out.println("Conexão estabelecida");
+                boolean continuar = true;
+                while(continuar){
+                    try{
+                        Comunicado comunicado = (Comunicado) receptor.readObject();
+
+                        if (comunicado instanceof Pedido){
+                            Pedido pedido = (Pedido) comunicado;
+                            byte contagem = pedido.contar();
+
+                            Resposta resposta = new Resposta(contagem);
+                            transmissor.writeObject(resposta);
+                            transmissor.flush();
+                        }
+                        else if (comunicado instanceof ComunicadoEncerramento){
+                            continuar = false;
+                            transmissor.close();
+                            receptor.close();
+                            conexao.close();
+                        }
+                    }catch (Exception e){
+                        continuar = false;
+                        System.out.println("Conexão encerrada");
+                    }
+                }
             }
 
         }
