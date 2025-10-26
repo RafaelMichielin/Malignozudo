@@ -1,15 +1,15 @@
 public class Resposta extends Comunicado {
 
-    private byte contagem;
+    private int contagem;
 
-    public Resposta(byte contagem) throws Exception {
+    public Resposta(int contagem) throws Exception {
         if(contagem < 0){
             throw new Exception("Contagem inválida");
         }
         this.contagem = contagem;
     }
 
-    public byte getContagem(){
+    public int getContagem(){
         return this.contagem;
     }
 
