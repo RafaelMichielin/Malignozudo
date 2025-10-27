@@ -1,156 +1,220 @@
-import java.net.Socket;
-import java.util.*;
 import java.io.*;
 import java.lang.Math;
+import java.net.Socket;
+import java.util.*;
 
 public class D {
-    private static void populatearray(byte[] array) {
-        for (int i = 0; i < array.length; i++) {
-            array[i] = (byte) (Math.random() * 201 - 100);
-        }
+  private static void populatearray(byte[] array) {
+    for (int i = 0; i < array.length; i++) {
+      array[i] = (byte)(Math.random() * 201 - 100);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    int[] portas = {3000, 3001, 3002};
+    int quantidadeIps = portas.length;
+
+    Socket[] conexoesList = new Socket[quantidadeIps];
+    ObjectInputStream[] receptoresList = new ObjectInputStream[quantidadeIps];
+    ObjectOutputStream[] transmissoresList =
+        new ObjectOutputStream[quantidadeIps];
+
+    int[] resultados = new int[quantidadeIps];
+    ComunicadoEncerramento comunicadoEncerramento =
+        new ComunicadoEncerramento();
+
+    System.out.println("Sistema iniciando...");
+
+    // Realizando conexões com os servidores (uma vez)
+    for (int i = 0; i < portas.length; i++) {
+      try {
+        System.out.println("Fazendo conexão com porta: " + portas[i]);
+        Socket conexao = new Socket("localhost", portas[i]);
+        ObjectOutputStream transmissor =
+            new ObjectOutputStream(conexao.getOutputStream());
+        ObjectInputStream receptor =
+            new ObjectInputStream(conexao.getInputStream());
+        conexoesList[i] = conexao;
+        transmissoresList[i] = transmissor;
+        receptoresList[i] = receptor;
+        System.out.println("Conectado à porta " + portas[i]);
+      } catch (Exception e) {
+        System.err.println("Falha ao conectar com " + portas[i] + ": " +
+                           e.getMessage());
+      }
     }
 
-    public static void main (String[] args) throws Exception {
-        int [] portas = {3000,3001,3002};
-        int quantidadeIps = portas.length;
-        int PORTA_PADRAO = 3000;
+    // Loop principal - processar múltiplas buscas
+    while (true) {
+      Thread[] threadsList = new Thread[quantidadeIps];
 
-        Socket[] conexoesList = new Socket[quantidadeIps];
-        ObjectInputStream[] receptoresList = new ObjectInputStream[quantidadeIps];
-        ObjectOutputStream[] transmissoresList = new ObjectOutputStream[quantidadeIps];
-        Thread[] threadsList = new Thread[quantidadeIps];
-        int[] resultados = new int[quantidadeIps]; // trocado de byte[] para int[]
+      long inicioCódigo = System.currentTimeMillis();
 
-        ComunicadoEncerramento comunicadoEncerramento = new ComunicadoEncerramento();
+      int tamanho_Max = 1_477_891_713;
+      int tamanho;
+      do {
+        System.out.print("Escolha um valor de no máximo " + tamanho_Max +
+                         " para inicializar o array: ");
+        tamanho = Teclado.getUmInt();
+        if (tamanho > tamanho_Max) {
+          System.out.println(
+              "Tamanho maior que o limite, escolha um valor menor");
+        }
+      } while (tamanho > tamanho_Max);
 
-        long inicioCódigo = System.currentTimeMillis();
-        System.out.println("Sistema iniciando...");
+      byte[] vetor = new byte[tamanho];
+      populatearray(vetor);
 
-        // Conexão com receptores
-        for (int i = 0; i < portas.length; i++) {
+      // Definição do valor a ser buscado
+      int position = (int)(Math.random() * vetor.length);
+      byte value = vetor[position];
+      System.out.println("Valor a ser buscado: " + value);
+
+      int qtdPortasValidas = 0;
+      for (int i = 0; i < conexoesList.length; i++) {
+        if (conexoesList[i] != null) {
+          qtdPortasValidas++;
+        }
+      }
+
+      System.out.println("Número de conexões válidas para envio: " +
+                         qtdPortasValidas);
+
+      int qtd = vetor.length / qtdPortasValidas;
+      int posIni = 0;
+      int posFim = qtd;
+
+      int resto = vetor.length % portas.length;
+      int qtdAparicoes = 0;
+
+      int[] temposExec = new int[qtdPortasValidas];
+
+      if (vetor.length % portas.length == 0) {
+        // Divisão exata do vetor
+        for (int j = 0; j < qtdPortasValidas; j++) {
+          if (conexoesList[j] == null) {
+            continue;
+          }
+          System.out.println("Enviando pacote para: " + portas[j]);
+
+          byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
+          final int indice = j;
+
+          threadsList[j] = new Thread(() -> {
             try {
-                System.out.println("Fazendo conexão com máquina: " + portas[i]);
-                Socket conexao = new Socket("localhost", portas[i]);
-                ObjectOutputStream transmissor = new ObjectOutputStream(conexao.getOutputStream());
-                ObjectInputStream receptor = new ObjectInputStream(conexao.getInputStream());
-                conexoesList[i] = conexao;
-                transmissoresList[i] = transmissor;
-                receptoresList[i] = receptor;
-                System.out.println("Conectado ao ip " + portas[i]);
+              long exec_servidor_ini = System.currentTimeMillis();
+              Pedido pedido = new Pedido(subArray, value);
+              transmissoresList[indice].writeObject(pedido);
+              transmissoresList[indice].flush();
+
+              Resposta resposta =
+                  (Resposta)(receptoresList[indice].readObject());
+              resultados[indice] = resposta.getContagem(); // sem cast para byte
+
+              long exec_servidor_fim = System.currentTimeMillis();
+              temposExec[indice] = (int)(exec_servidor_fim - exec_servidor_ini);
             } catch (Exception e) {
-                System.err.println("Falha ao conectar com " + portas[i] + ": " + e.getMessage());
+              System.out.println(e);
             }
-        }
+          });
+          threadsList[j].start();
 
-        // Criação do vetor
-        int tamanho_Max = 1_477_891_713;
-        int tamanho;
-        do {
-            System.out.print("Escolha um valor de no máximo " + tamanho_Max + " para inicializar o array: ");
-            tamanho = Teclado.getUmInt();
-            if (tamanho > tamanho_Max) {
-                System.out.println("Tamanho maior que o limite, escolha um valor menor");
+          posIni = posFim + 1;
+          posFim += qtd;
+        }
+      } else {
+        // Divisão com resto
+        for (int j = 0; j < qtdPortasValidas; j++) {
+          if (conexoesList[j] == null) {
+            continue;
+          }
+          if (j == portas.length - 1) {
+            posFim += resto;
+          }
+
+          System.out.println("Enviando pacote para: " + portas[j]);
+          byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
+          final int indice = j;
+
+          threadsList[j] = new Thread(() -> {
+            try {
+              long exec_servidor_ini = System.currentTimeMillis();
+              Pedido pedido = new Pedido(subArray, value);
+              transmissoresList[indice].writeObject(pedido);
+              transmissoresList[indice].flush();
+
+              Resposta resposta =
+                  (Resposta)(receptoresList[indice].readObject());
+              resultados[indice] = resposta.getContagem(); // sem cast para byte
+
+              long exec_servidor_fim = System.currentTimeMillis();
+              temposExec[indice] = (int)(exec_servidor_fim - exec_servidor_ini);
+            } catch (Exception e) {
+              System.out.println(e);
             }
-        } while (tamanho > tamanho_Max);
+          });
+          threadsList[j].start();
 
-        byte[] vetor = new byte[tamanho];
-        populatearray(vetor);
-
-        // Definição do valor a ser buscado
-        int position = (int)(Math.random() * vetor.length);
-        byte value = vetor[position];
-        System.out.println("Valor a ser buscado: " + value);
-
-        int qtd = vetor.length / portas.length;
-        int posIni = 0;
-        int posFim = qtd;
-
-        int resto = vetor.length % portas.length;
-        int qtdAparicoes = 0;
-
-        if (vetor.length % portas.length == 0) {
-            // Divisão exata do vetor
-            for (int j = 0; j < portas.length; j++) {
-                System.out.println("Enviando pacote para: " + portas[j]);
-
-                byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
-                final int indice = j;
-
-                threadsList[j] = new Thread(() -> {
-                    try {
-                        long exec_servidor_ini = System.currentTimeMillis();
-                        Pedido pedido = new Pedido(subArray, value);
-                        transmissoresList[indice].writeObject(pedido);
-                        transmissoresList[indice].flush();
-
-                        Resposta resposta = (Resposta)(receptoresList[indice].readObject());
-                        resultados[indice] = resposta.getContagem(); // sem cast para byte
-
-                        long exec_servidor_fim = System.currentTimeMillis();
-                        System.out.println("Computador " + indice + " realizou contagem em: " + (exec_servidor_fim - exec_servidor_ini));
-                        System.out.println("Valor " + value + " encontrado " + resultados[indice] + " vezes");
-                    } catch (Exception e) {
-                        System.out.println(e);
-                    }
-                });
-                threadsList[j].start();
-
-                posIni = posFim + 1;
-                posFim += qtd;
-            }
-        } else {
-            // Divisão com resto
-            for (int j = 0; j < portas.length; j++) {
-                if (j == portas.length - 1) {
-                    posFim += resto;
-                }
-
-                System.out.println("Enviando pacote para: " + portas[j]);
-                byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
-                final int indice = j;
-
-                threadsList[j] = new Thread(() -> {
-                    try {
-                        long exec_servidor_ini = System.currentTimeMillis();
-                        Pedido pedido = new Pedido(subArray, value);
-                        transmissoresList[indice].writeObject(pedido);
-                        transmissoresList[indice].flush();
-
-                        Resposta resposta = (Resposta)(receptoresList[indice].readObject());
-                        resultados[indice] = resposta.getContagem(); // sem cast para byte
-
-                        long exec_servidor_fim = System.currentTimeMillis();
-                        System.out.println("Computador " + indice + " realizou contagem em: " + (exec_servidor_fim - exec_servidor_ini));
-                        System.out.println("Valor " + value + " encontrado " + resultados[indice] + " vezes");
-                    } catch (Exception e) {
-                        System.out.println(e);
-                    }
-                });
-                threadsList[j].start();
-
-                posIni = posFim + 1;
-                posFim += qtd;
-            }
+          posIni = posFim + 1;
+          posFim += qtd;
         }
+      }
 
-        // Esperar threads terminarem
-        for (Thread t : threadsList) {
-            t.join();
+      // Esperar threads terminarem
+      for (Thread t : threadsList) {
+        if (t != null) {
+          t.join();
         }
+      }
 
-        // Encerrar conexões e somar resultados
-        for (int k = 0; k < resultados.length; k++) {
-            qtdAparicoes += resultados[k];
-            transmissoresList[k].writeObject(comunicadoEncerramento);
-            transmissoresList[k].flush();
-            transmissoresList[k].close();
-            receptoresList[k].close();
-            conexoesList[k].close();
-            System.out.println("Conexão com " + portas[k] + " encerrada.");
+      for (int k = 0; k < qtdPortasValidas; k++) {
+        System.out.println("Resultado do computador " + portas[k] + ": " +
+                           resultados[k]);
+        System.out.println("Tempo de execução do computador " + portas[k] +
+                           ": " + temposExec[k] + " ms");
+      }
+
+      // Somar resultados
+      for (int k = 0; k < resultados.length; k++) {
+        qtdAparicoes += resultados[k];
+      }
+
+      System.out.println("O valor " + value + " aparece " + qtdAparicoes +
+                         " vezes");
+      long fimCodigo = System.currentTimeMillis();
+      System.out.println("Tempo de execução total: " +
+                         (fimCodigo - inicioCódigo));
+
+      String resposta;
+
+      do {
+        System.out.print("\nDeseja realizar outra busca? (s/n): ");
+        resposta = Teclado.getUmString();
+        if (!resposta.equalsIgnoreCase("n") &&
+            !resposta.equalsIgnoreCase("s")) {
+          System.out.println(
+              "Resposta inválida. Por favor, digite 's' para sim ou 'n' para não.");
         }
+      } while (!resposta.equalsIgnoreCase("s") &&
+               !resposta.equalsIgnoreCase("n"));
 
-        System.out.println("O valor " + value + " aparece " + qtdAparicoes + " vezes");
-        long fimCodigo = System.currentTimeMillis();
-        System.out.println("Tempo de execução total: " + (fimCodigo - inicioCódigo));
+      if (resposta.equalsIgnoreCase("n")) {
+        System.out.println("Encerrando o sistema...");
+        break;
+      }
     }
+
+    // Encerrar conexões
+    for (int k = 0; k < resultados.length; k++) {
+      if(conexoesList[k]==null){
+        continue;
+      }
+      transmissoresList[k].writeObject(comunicadoEncerramento);
+      transmissoresList[k].flush();
+      transmissoresList[k].close();
+      receptoresList[k].close();
+      conexoesList[k].close();
+      System.out.println("Conexão com " + portas[k] + " encerrada.");
+    }
+  }
 }

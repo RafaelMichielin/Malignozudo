@@ -1,2 +1,1 @@
-public class ComunicadoEncerramento extends Comunicado{
-}
+public class ComunicadoEncerramento extends Comunicado {}
