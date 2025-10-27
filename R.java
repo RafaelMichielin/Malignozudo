@@ -37,7 +37,7 @@ public class R {
 
               if (comunicado instanceof Pedido) {
                 Pedido pedido = (Pedido)comunicado;
-                byte[] numeros = pedido.getNumero();
+                int[] numeros = pedido.getNumero();
                 byte procurado = pedido.getProcurado();
                 int quantidadeProcessadores =
                     Runtime.getRuntime().availableProcessors();
@@ -55,7 +55,7 @@ public class R {
                 int fim = parte - 1;
 
                 for (int i = 0; i < quantidadeProcessadores; i++) {
-                  if (i == quantidadeProcessadores - 1)
+                  if (i == quantidadeProcessadores - 1 && resto > 0)
                     fim += resto;
 
                   final int ini = inicio;
@@ -93,7 +93,7 @@ public class R {
                 System.out.println("Total de ocorrências do valor " +
                                    procurado + ": " + total);
 
-                transmissor.writeObject(new Resposta((byte)total));
+                transmissor.writeObject(new Resposta(total));
                 transmissor.flush();
 
               }

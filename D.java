@@ -4,9 +4,9 @@ import java.net.Socket;
 import java.util.*;
 
 public class D {
-  private static void populatearray(byte[] array) {
+  private static void populatearray(int[] array) {
     for (int i = 0; i < array.length; i++) {
-      array[i] = (byte)(Math.random() * 201 - 100);
+      array[i] = (int)(Math.random() * 201 - 100);
     }
   }
 
@@ -50,7 +50,7 @@ public class D {
 
       long inicioCódigo = System.currentTimeMillis();
 
-      int tamanho_Max = 1_477_891_713;
+      int tamanho_Max = 50_000_000; // ~200 MB com int[], mais seguro
       int tamanho;
       do {
         System.out.print("Escolha um valor de no máximo " + tamanho_Max +
@@ -62,12 +62,12 @@ public class D {
         }
       } while (tamanho > tamanho_Max);
 
-      byte[] vetor = new byte[tamanho];
+      int[] vetor = new int[tamanho];
       populatearray(vetor);
 
       // Definição do valor a ser buscado
       int position = (int)(Math.random() * vetor.length);
-      byte value = vetor[position];
+      byte value = (byte)vetor[position];
       System.out.println("Valor a ser buscado: " + value);
 
       int qtdPortasValidas = 0;
@@ -97,7 +97,7 @@ public class D {
           }
           System.out.println("Enviando pacote para: " + portas[j]);
 
-          byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
+          int[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
           final int indice = j;
 
           threadsList[j] = new Thread(() -> {
@@ -109,7 +109,7 @@ public class D {
 
               Resposta resposta =
                   (Resposta)(receptoresList[indice].readObject());
-              resultados[indice] = resposta.getContagem(); // sem cast para byte
+              resultados[indice] = resposta.getContagem(); // sem cast para int
 
               long exec_servidor_fim = System.currentTimeMillis();
               temposExec[indice] = (int)(exec_servidor_fim - exec_servidor_ini);
@@ -133,7 +133,7 @@ public class D {
           }
 
           System.out.println("Enviando pacote para: " + portas[j]);
-          byte[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
+          int[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
           final int indice = j;
 
           threadsList[j] = new Thread(() -> {
@@ -145,7 +145,7 @@ public class D {
 
               Resposta resposta =
                   (Resposta)(receptoresList[indice].readObject());
-              resultados[indice] = resposta.getContagem(); // sem cast para byte
+              resultados[indice] = resposta.getContagem(); // sem cast para int
 
               long exec_servidor_fim = System.currentTimeMillis();
               temposExec[indice] = (int)(exec_servidor_fim - exec_servidor_ini);

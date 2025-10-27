@@ -1,8 +1,8 @@
 public class Pedido extends Comunicado {
-  private byte[] numero;
+  private int[] numero;
   private byte procurado;
 
-  public Pedido(byte n[], byte pr) throws Exception {
+  public Pedido(int n[], byte pr) throws Exception {
 
     if (n == null) {
       throw new Exception("Array de números vazio");
@@ -27,5 +27,5 @@ public class Pedido extends Comunicado {
 
   public byte getProcurado() { return procurado; }
 
-  public byte[] getNumero() { return numero; }
+  public int[] getNumero() { return numero; }
 }
