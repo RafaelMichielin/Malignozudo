@@ -1,220 +1,151 @@
 import java.io.*;
-import java.lang.Math;
-import java.net.Socket;
+import java.net.*;
 import java.util.*;
 
 public class D {
-  private static void populatearray(int[] array) {
-    for (int i = 0; i < array.length; i++) {
-      array[i] = (int)(Math.random() * 201 - 100);
-    }
-  }
+  // Altere/Adicione portas conforme necessário para testar localmente
+  private static final int[] PORTAS = {12344, 12345, 12346};
+  private static final String IP = "127.0.0.1"; // Localhost
+  private static final int MAX_TAMANHO = 1_400_000; // Limite seguro para byte[]
 
   public static void main(String[] args) throws Exception {
-    int[] portas = {3000, 3001, 3002};
-    int quantidadeIps = portas.length;
+    System.out.println("=== SISTEMA DISTRIBUÍDO DE ORDENAÇÃO (CLIENTE D) ===");
 
-    Socket[] conexoesList = new Socket[quantidadeIps];
-    ObjectInputStream[] receptoresList = new ObjectInputStream[quantidadeIps];
-    ObjectOutputStream[] transmissoresList =
-        new ObjectOutputStream[quantidadeIps];
+    int numServidores = PORTAS.length;
+    Socket[] conexoes = new Socket[numServidores];
+    ObjectOutputStream[] transmissores = new ObjectOutputStream[numServidores];
+    ObjectInputStream[] receptores = new ObjectInputStream[numServidores];
 
-    int[] resultados = new int[quantidadeIps];
-    ComunicadoEncerramento comunicadoEncerramento =
-        new ComunicadoEncerramento();
+    // 1. Conexão Inicial Persistente
+    System.out.println("[D] Conectando aos servidores...");
+    try {
+      for (int i = 0; i < numServidores; i++) {
+        conexoes[i] = new Socket(IP, PORTAS[i]);
+        transmissores[i] = new ObjectOutputStream(conexoes[i].getOutputStream());
+        receptores[i] = new ObjectInputStream(conexoes[i].getInputStream());
+        System.out.println("[D] Conectado à porta " + PORTAS[i]);
+      }
+    } catch (IOException e) {
+      System.err.println("[ERRO] Falha ao conectar. Verifique se os Receptores (R) estão rodando.");
+      return;
+    }
 
-    System.out.println("Sistema iniciando...");
-
-    // Realizando conexões com os servidores (uma vez)
-    for (int i = 0; i < portas.length; i++) {
+    boolean continuar = true;
+    while (continuar) {
+      // 2. Leitura do tamanho do vetor
+      int tamanho = 0;
       try {
-        System.out.println("Fazendo conexão com porta: " + portas[i]);
-        Socket conexao = new Socket("localhost", portas[i]);
-        ObjectOutputStream transmissor =
-            new ObjectOutputStream(conexao.getOutputStream());
-        ObjectInputStream receptor =
-            new ObjectInputStream(conexao.getInputStream());
-        conexoesList[i] = conexao;
-        transmissoresList[i] = transmissor;
-        receptoresList[i] = receptor;
-        System.out.println("Conectado à porta " + portas[i]);
-      } catch (Exception e) {
-        System.err.println("Falha ao conectar com " + portas[i] + ": " +
-                           e.getMessage());
-      }
-    }
-
-    // Loop principal - processar múltiplas buscas
-    while (true) {
-      Thread[] threadsList = new Thread[quantidadeIps];
-
-      long inicioCódigo = System.currentTimeMillis();
-
-      int tamanho_Max = 50_000_000; // ~200 MB com int[], mais seguro
-      int tamanho;
-      do {
-        System.out.print("Escolha um valor de no máximo " + tamanho_Max +
-                         " para inicializar o array: ");
+        System.out.print("\nDigite o tamanho do vetor (máx " + MAX_TAMANHO + "): ");
         tamanho = Teclado.getUmInt();
-        if (tamanho > tamanho_Max) {
-          System.out.println(
-              "Tamanho maior que o limite, escolha um valor menor");
+        if (tamanho <= 0 || tamanho > MAX_TAMANHO) {
+          System.out.println("Tamanho inválido.");
+          continue;
         }
-      } while (tamanho > tamanho_Max);
+      } catch (Exception e) { continue; }
 
-      int[] vetor = new int[tamanho];
-      populatearray(vetor);
+      // 3. Geração do vetor aleatório (byte)
+      byte[] vetor = new byte[tamanho];
+      Random rand = new Random();
+      rand.nextBytes(vetor); // Preenche com bytes aleatórios
 
-      // Definição do valor a ser buscado
-      int position = (int)(Math.random() * vetor.length);
-      byte value = (byte)vetor[position];
-      System.out.println("Valor a ser buscado: " + value);
+      System.out.println("[D] Vetor gerado.");
 
-      int qtdPortasValidas = 0;
-      for (int i = 0; i < conexoesList.length; i++) {
-        if (conexoesList[i] != null) {
-          qtdPortasValidas++;
-        }
+      // 4. Divisão do vetor
+      int parteTam = tamanho / numServidores;
+      byte[][] partes = new byte[numServidores][];
+      int inicio = 0;
+
+      for (int i = 0; i < numServidores; i++) {
+        int fim = (i == numServidores - 1) ? tamanho : inicio + parteTam;
+        partes[i] = Arrays.copyOfRange(vetor, inicio, fim);
+        inicio = fim;
       }
 
-      System.out.println("Número de conexões válidas para envio: " +
-                         qtdPortasValidas);
+      // 5. Envio e Recebimento (Paralelo)
+      byte[][] resultadosOrdenados = new byte[numServidores][];
+      Thread[] threads = new Thread[numServidores];
+      long inicioTempo = System.nanoTime();
 
-      int qtd = vetor.length / qtdPortasValidas;
-      int posIni = 0;
-      int posFim = qtd;
+      for (int i = 0; i < numServidores; i++) {
+        final int idx = i;
+        threads[i] = new Thread(() -> {
+          try {
+            // Envia Pedido (apenas o vetor, sem valor de busca)
+            transmissores[idx].writeObject(new Pedido(partes[idx]));
+            transmissores[idx].flush();
 
-      int resto = vetor.length % portas.length;
-      int qtdAparicoes = 0;
+            // Recebe Resposta (vetor ordenado)
+            Resposta resp = (Resposta) receptores[idx].readObject();
+            resultadosOrdenados[idx] = resp.getVetor();
 
-      int[] temposExec = new int[qtdPortasValidas];
-
-      if (vetor.length % portas.length == 0) {
-        // Divisão exata do vetor
-        for (int j = 0; j < qtdPortasValidas; j++) {
-          if (conexoesList[j] == null) {
-            continue;
+          } catch (Exception e) {
+            System.err.println("[ERRO] Servidor " + PORTAS[idx] + ": " + e.getMessage());
           }
-          System.out.println("Enviando pacote para: " + portas[j]);
-
-          int[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
-          final int indice = j;
-
-          threadsList[j] = new Thread(() -> {
-            try {
-              long exec_servidor_ini = System.currentTimeMillis();
-              Pedido pedido = new Pedido(subArray, value);
-              transmissoresList[indice].writeObject(pedido);
-              transmissoresList[indice].flush();
-
-              Resposta resposta =
-                  (Resposta)(receptoresList[indice].readObject());
-              resultados[indice] = resposta.getContagem(); // sem cast para int
-
-              long exec_servidor_fim = System.currentTimeMillis();
-              temposExec[indice] = (int)(exec_servidor_fim - exec_servidor_ini);
-            } catch (Exception e) {
-              System.out.println(e);
-            }
-          });
-          threadsList[j].start();
-
-          posIni = posFim + 1;
-          posFim += qtd;
-        }
-      } else {
-        // Divisão com resto
-        for (int j = 0; j < qtdPortasValidas; j++) {
-          if (conexoesList[j] == null) {
-            continue;
-          }
-          if (j == portas.length - 1) {
-            posFim += resto;
-          }
-
-          System.out.println("Enviando pacote para: " + portas[j]);
-          int[] subArray = Arrays.copyOfRange(vetor, posIni, posFim);
-          final int indice = j;
-
-          threadsList[j] = new Thread(() -> {
-            try {
-              long exec_servidor_ini = System.currentTimeMillis();
-              Pedido pedido = new Pedido(subArray, value);
-              transmissoresList[indice].writeObject(pedido);
-              transmissoresList[indice].flush();
-
-              Resposta resposta =
-                  (Resposta)(receptoresList[indice].readObject());
-              resultados[indice] = resposta.getContagem(); // sem cast para int
-
-              long exec_servidor_fim = System.currentTimeMillis();
-              temposExec[indice] = (int)(exec_servidor_fim - exec_servidor_ini);
-            } catch (Exception e) {
-              System.out.println(e);
-            }
-          });
-          threadsList[j].start();
-
-          posIni = posFim + 1;
-          posFim += qtd;
-        }
+        });
+        threads[i].start();
       }
 
-      // Esperar threads terminarem
-      for (Thread t : threadsList) {
-        if (t != null) {
-          t.join();
-        }
+      // Aguarda todos os servidores terminarem
+      for (Thread t : threads) {
+        try { t.join(); } catch (InterruptedException e) {}
       }
 
-      for (int k = 0; k < qtdPortasValidas; k++) {
-        System.out.println("Resultado do computador " + portas[k] + ": " +
-                           resultados[k]);
-        System.out.println("Tempo de execução do computador " + portas[k] +
-                           ": " + temposExec[k] + " ms");
-      }
+      System.out.println("[D] Todos os servidores responderam. Fazendo merge final...");
 
-      // Somar resultados
-      for (int k = 0; k < resultados.length; k++) {
-        qtdAparicoes += resultados[k];
-      }
+      // 6. Merge Final Local
+      byte[] vetorFinal = mergeMultiplo(resultadosOrdenados);
 
-      System.out.println("O valor " + value + " aparece " + qtdAparicoes +
-                         " vezes");
-      long fimCodigo = System.currentTimeMillis();
-      System.out.println("Tempo de execução total: " +
-                         (fimCodigo - inicioCódigo));
+      long fimTempo = System.nanoTime();
+      double ms = (fimTempo - inicioTempo) / 1_000_000.0;
 
-      String resposta;
+      System.out.printf("[SUCESSO] Ordenação concluída em %.3f ms%n", ms);
 
-      do {
-        System.out.print("\nDeseja realizar outra busca? (s/n): ");
-        resposta = Teclado.getUmString();
-        if (!resposta.equalsIgnoreCase("n") &&
-            !resposta.equalsIgnoreCase("s")) {
-          System.out.println(
-              "Resposta inválida. Por favor, digite 's' para sim ou 'n' para não.");
-        }
-      } while (!resposta.equalsIgnoreCase("s") &&
-               !resposta.equalsIgnoreCase("n"));
+      // Pergunta para salvar/imprimir
+      // (Opcional: implemente a lógica de salvar em arquivo aqui se quiser)
 
-      if (resposta.equalsIgnoreCase("n")) {
-        System.out.println("Encerrando o sistema...");
-        break;
-      }
+      // 7. Loop de repetição
+      System.out.print("Ordenar outro vetor? (s/n): ");
+      try {
+        String s = Teclado.getUmString();
+        if (!s.equalsIgnoreCase("s")) continuar = false;
+      } catch (Exception e) { continuar = false; }
     }
 
-    // Encerrar conexões
-    for (int k = 0; k < resultados.length; k++) {
-      if(conexoesList[k]==null){
-        continue;
-      }
-      transmissoresList[k].writeObject(comunicadoEncerramento);
-      transmissoresList[k].flush();
-      transmissoresList[k].close();
-      receptoresList[k].close();
-      conexoesList[k].close();
-      System.out.println("Conexão com " + portas[k] + " encerrada.");
+    // 8. Encerramento
+    System.out.println("[D] Enviando sinal de fim...");
+    for (int i = 0; i < numServidores; i++) {
+      try {
+        transmissores[i].writeObject(new ComunicadoEncerramento());
+        conexoes[i].close();
+      } catch (Exception e) {}
     }
+    System.out.println("Fim.");
+  }
+
+  // --- LÓGICA DE MERGE (Juntar os pedaços que voltaram) ---
+  private static byte[] mergeMultiplo(byte[][] arrays) {
+    // Junta os arrays 2 a 2 até sobrar 1
+    while (arrays.length > 1) {
+      int novaQtd = (arrays.length + 1) / 2;
+      byte[][] novo = new byte[novaQtd][];
+
+      for (int i = 0; i < arrays.length; i += 2) {
+        if (i + 1 == arrays.length) novo[i/2] = arrays[i];
+        else novo[i/2] = mergeDois(arrays[i], arrays[i+1]);
+      }
+      arrays = novo;
+    }
+    return arrays[0];
+  }
+
+  private static byte[] mergeDois(byte[] a, byte[] b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    byte[] r = new byte[a.length + b.length];
+    int i=0, j=0, k=0;
+    while(i < a.length && j < b.length) r[k++] = (a[i] <= b[j]) ? a[i++] : b[j++];
+    while(i < a.length) r[k++] = a[i++];
+    while(j < b.length) r[k++] = b[j++];
+    return r;
   }
 }

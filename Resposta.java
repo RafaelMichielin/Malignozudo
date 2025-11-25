@@ -1,15 +1,14 @@
 public class Resposta extends Comunicado {
 
-  private int contagem;
+  private byte[] vetorOrdenado;
 
-  public Resposta(int contagem) throws Exception {
-    if (contagem < 0) {
-      throw new Exception("Contagem inválida");
-    }
-    this.contagem = contagem;
+  public Resposta(byte[] vetor) throws Exception {
+    if (vetor == null)
+      throw new Exception("Vetor nulo");
+    this.vetorOrdenado = vetor;
   }
 
-  public int getContagem() { return this.contagem; }
-
-  public String toString() { return ("" + this.contagem); }
+  public byte[] getVetor() {
+    return this.vetorOrdenado;
+  }
 }
