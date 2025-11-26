@@ -9,7 +9,6 @@ public class Pedido extends Comunicado {
     return this.numeros;
   }
 
-  // Método que realiza a ordenação usando PARALELISMO
   public byte[] ordenar() {
     int n = numeros.length;
     int disponiveis = Runtime.getRuntime().availableProcessors();

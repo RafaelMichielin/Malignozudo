@@ -2,7 +2,7 @@ import java.io.*;
 import java.net.*;
 
 public class R {
-  public static final int PORTA_PADRAO = 12345; // Porta sugerida no enunciado
+  public static final int PORTA_PADRAO = 12345;
 
   public static void main(String[] args) {
     int porta = PORTA_PADRAO;
@@ -35,7 +35,6 @@ public class R {
                 Pedido pedido = (Pedido) comunicado;
                 System.out.println("[R] Pedido recebido. Iniciando ordenação paralela...");
 
-                // A MÁGICA ACONTECE AQUI: O pedido usa as threads internamente
                 byte[] resultado = pedido.ordenar();
 
                 System.out.println("[R] Ordenação concluída. Enviando resposta.");
