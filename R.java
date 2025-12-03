@@ -9,7 +9,7 @@ public class R {
     if (args.length > 0) {
       try {
         porta = Integer.parseInt(args[0]);
-      } catch (NumberFormatException e) {
+      } catch (Exception e) {
         System.err.println("Porta inválida.");
         return;
       }
@@ -33,12 +33,38 @@ public class R {
 
               if (comunicado instanceof Pedido) {
                 Pedido pedido = (Pedido) comunicado;
-                System.out.println("[R] Pedido recebido. Iniciando ordenação paralela...");
+                System.out.println("[R] Pedido recebido. Iniciando ordenação AVANÇADA...");
 
-                byte[] resultado = pedido.ordenar();
+                // === LÓGICA NOVA INJETADA AQUI ===
+                int qtdProcessadores = Runtime.getRuntime().availableProcessors();
+
+                // 1. Divide o pedido em partes
+                Pedido[] partesDoPedido = pedido.divide(qtdProcessadores);
+                ThreadSorteadora[] threads = new ThreadSorteadora[qtdProcessadores];
+
+                // 2. Dispara threads para ordenar cada parte
+                for (int i = 0; i < qtdProcessadores; i++) {
+                  threads[i] = new ThreadSorteadora(partesDoPedido[i]);
+                  threads[i].start();
+                }
+
+                // 3. Espera todas terminarem
+                for (int i = 0; i < qtdProcessadores; i++) {
+                  threads[i].join();
+                }
+
+                // 4. Coleta os resultados
+                byte[][] blocosOrdenados = new byte[qtdProcessadores][];
+                for (int i = 0; i < qtdProcessadores; i++) {
+                  blocosOrdenados[i] = threads[i].getResultado();
+                }
+
+                // 5. Faz o Merge Paralelo dos resultados
+                byte[] resultadoFinal = ThreadSorteadora.intercalarMultiploComThreads(blocosOrdenados, qtdProcessadores);
+                // =================================
 
                 System.out.println("[R] Ordenação concluída. Enviando resposta.");
-                transmissor.writeObject(new Resposta(resultado));
+                transmissor.writeObject(new Resposta(resultadoFinal));
                 transmissor.flush();
               }
               else if (comunicado instanceof ComunicadoEncerramento) {
@@ -46,7 +72,7 @@ public class R {
                 continuar = false;
               }
             } catch (EOFException e) {
-              continuar = false; // Cliente desconectou
+              continuar = false;
             }
           }
         } catch (Exception e) {
